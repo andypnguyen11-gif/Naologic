@@ -136,6 +136,7 @@
               <th>Work Center</th>
               <th>Required</th>
               <th>Available</th>
+              <th>Allocated</th>
               <th>On Order</th>
               <th>Shortage</th>
               <th>Ready Days</th>
@@ -151,6 +152,7 @@
               <td>{{ item.workCenterName || 'Supplier' }}</td>
               <td>{{ item.quantityRequired }}</td>
               <td>{{ item.quantityAvailable }}</td>
+              <td>{{ item.quantityAllocated }}</td>
               <td>{{ item.quantityOnOrder }}</td>
               <td [class.is-short]="item.shortage > 0">{{ item.shortage }}</td>
               <td>{{ item.projectedReadyDays }}</td>

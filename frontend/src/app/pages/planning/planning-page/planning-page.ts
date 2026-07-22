@@ -101,7 +101,7 @@ export class PlanningPage implements OnInit {
 
   protected exportGridCsv(): void {
     this.exportCsv(
-      ['Component', 'Part Number', 'Type', 'Work Center', 'Required', 'Available', 'On Order', 'Shortage', 'Ready Days'],
+      ['Component', 'Part Number', 'Type', 'Work Center', 'Required', 'Available', 'Allocated', 'On Order', 'Shortage', 'Ready Days'],
       this.componentGaps.map((item) => [
         item.componentName,
         item.partNumber,
@@ -109,6 +109,7 @@ export class PlanningPage implements OnInit {
         item.workCenterName || 'Supplier',
         this.formatCsvNumber(item.quantityRequired),
         this.formatCsvNumber(item.quantityAvailable),
+        this.formatCsvNumber(item.quantityAllocated),
         this.formatCsvNumber(item.quantityOnOrder),
         this.formatCsvNumber(item.shortage),
         `${item.projectedReadyDays}`
