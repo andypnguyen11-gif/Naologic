@@ -238,5 +238,7 @@ reacting live, not a buildability jump.)
   defaulting, and shortage-error rendering; existing timeline/CSV specs
   extended for the new columns.
 - **Manual demo script:** create tractor order → planning Available drops;
-  complete wheel batch → tractor buildability rises; try to complete a short
-  tractor order → blocked with named shortages; delete → planning recovers.
+  complete wheel batch → grid reacts live (wheel Available 6 → 14, shortage
+  34 → 26; Buildable Now stays 1 on hydraulic/control-panel); try to complete
+  a short tractor order → blocked with named shortages; delete → planning
+  recovers.
