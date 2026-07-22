@@ -190,7 +190,9 @@ export class WorkOrderPanel implements OnChanges {
   protected onPartSelected(part: BuildablePart | string | null): void {
     const partId = typeof part === 'string' ? part : (part?.partId ?? null);
     const match = this.buildableParts.find((candidate) => candidate.partId === partId);
-    if (match?.defaultWorkCenterId) {
+    // Only fill an empty work center; a value seeded from the clicked timeline
+    // row (or chosen by the user) must not be overwritten by the part default.
+    if (match?.defaultWorkCenterId && !this.form.getRawValue().workCenterId) {
       this.form.patchValue({ workCenterId: match.defaultWorkCenterId });
     }
   }

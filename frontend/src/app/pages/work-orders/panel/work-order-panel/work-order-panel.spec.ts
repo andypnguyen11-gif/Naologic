@@ -49,13 +49,22 @@ describe('WorkOrderPanel', () => {
     expect(component.form.get('quantity')?.invalid).toBeTrue();
   });
 
-  it('should default the work center from the selected part', () => {
+  it('should default the work center from the selected part when none is set', () => {
+    const component = createComponent();
+    component.form.patchValue({ workCenterId: null });
+
+    component.onPartSelected('part-wheel-assembly');
+
+    expect(component.form.get('workCenterId')?.value).toBe('wc-005');
+  });
+
+  it('should not overwrite a work center seeded from the clicked timeline row', () => {
     const component = createComponent();
     component.form.patchValue({ workCenterId: 'wc-003' });
 
     component.onPartSelected('part-wheel-assembly');
 
-    expect(component.form.get('workCenterId')?.value).toBe('wc-005');
+    expect(component.form.get('workCenterId')?.value).toBe('wc-003');
   });
 
   it('should emit a save event with part, quantity, work center, and ISO dates', () => {
