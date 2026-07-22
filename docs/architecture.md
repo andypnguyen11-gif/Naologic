@@ -119,7 +119,7 @@ A part is "buildable" (orderable as a work order) exactly when at least one
 | Column | Type | Notes |
 |---|---|---|
 | `InventoryId` | `NVARCHAR(50)` | Primary key. |
-| `PartId` | `NVARCHAR(50)` | FK → `Parts`. Not unique at the schema level, but the app treats it as one row per part, creating a new row on demand only when none exists. |
+| `PartId` | `NVARCHAR(50)` | FK → `Parts`. Unique (`UX_Inventory_PartId`) — one row per part, matching the app's behavior of creating a new row on demand only when none exists; the constraint closes the concurrent-insert race that could otherwise create two rows for the same never-before-stocked part. |
 | `QuantityOnHand` | `DECIMAL(12,2)` | Physical stock. Mutated by the work-order lifecycle. |
 | `QuantityAllocated` | `DECIMAL(12,2)` | Soft-reserved by open/in-progress/blocked work orders. |
 | `QuantityOnOrder` | `DECIMAL(12,2)` | Incoming supply; not mutated by this feature. |
@@ -164,7 +164,10 @@ must run in this order (fresh install):
    `WorkOrders` references it).
 3. `api/database/WorkOrders.sql` — `WorkOrders` table + the six seeded
    orders.
-4. `api/database/Users.sql` — auth tables and the admin account.
+4. `api/database/Users.sql` — auth tables only; it contains no seed
+   `INSERT`, so the first account is created via the signup page
+   (signup accounts get the Admin role — see `POST /api/auth/signup`
+   above).
 
 ### Migration for a pre-existing database
 
@@ -176,8 +179,11 @@ centers → add `PartId`/`Quantity` as nullable → delete the legacy seed rows
 and insert the new production-order seed set → tighten both columns to
 `NOT NULL` and add the FK/CHECK constraints → reconcile the `Inventory`
 table to the spec §5 values (including inserting the previously-absent
-`part-tractor-1000` row). This script is meant to be run once against a
-target database and is not idempotent against itself.
+`part-tractor-1000` row) → add the `UX_Inventory_PartId` and
+`UX_BOM_Parent_Component` unique indexes, guarded with `IF NOT EXISTS`
+checks so that step alone is safe to re-run. This script is meant to be run
+once against a target database and is not idempotent against itself as a
+whole (the `DELETE FROM WorkOrders` step is not guarded).
 
 ## Inventory lifecycle
 

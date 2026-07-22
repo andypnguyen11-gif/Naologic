@@ -31,6 +31,12 @@ CREATE TABLE BillOfMaterials (
 );
 GO
 
+-- A part may appear at most once as a component of a given parent; without
+-- this, duplicate BOM lines would silently double-count required quantity
+-- in the shortage/planning math.
+CREATE UNIQUE INDEX UX_BOM_Parent_Component ON BillOfMaterials (ParentPartId, ComponentPartId);
+GO
+
 CREATE TABLE Inventory (
     InventoryId NVARCHAR(50) NOT NULL PRIMARY KEY,
     PartId NVARCHAR(50) NOT NULL,
@@ -41,6 +47,13 @@ CREATE TABLE Inventory (
     CONSTRAINT FK_Inventory_Parts
         FOREIGN KEY (PartId) REFERENCES Parts(PartId)
 );
+GO
+
+-- Enforces one Inventory row per part, matching the app's "row on demand"
+-- assumption (WorkOrderInventoryService inserts a new row only when none
+-- exists for a part) and closing the race where two concurrent inserts for
+-- the same never-before-stocked part could otherwise both succeed.
+CREATE UNIQUE INDEX UX_Inventory_PartId ON Inventory (PartId);
 GO
 
 CREATE TABLE ProductionDemand (

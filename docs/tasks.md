@@ -165,11 +165,15 @@ Database setup section).
 
 **Files:** none (verification only; fix regressions where found).
 
-- [ ] Full builds and test suites green (`dotnet build`/`dotnet test`,
+- [x] Full builds and test suites green (`dotnet build`/`dotnet test`,
       `npm run build`/`npm test`), including the DB-backed integration
       tests when a disposable test database is available.
-- [ ] Manual API smoke test against the demo script in spec §7 (buildable
+- [x] Manual API smoke test against the demo script in spec §7 (buildable
       parts list, baseline planning numbers, create/complete/shortage/
       reverse flow, planning numbers returning to baseline).
-- [ ] Browser sanity pass (optional but recommended).
-- [ ] Any regressions found are fixed and committed.
+- [x] Browser sanity pass (optional but recommended).
+- [x] Any regressions found are fixed and committed.
+
+Outcome: backend 19/19 (incl. live-DB integration run), frontend 26/26
+Karma, spec §7 API smoke all-green incl. shortage rollback and baseline
+restore.

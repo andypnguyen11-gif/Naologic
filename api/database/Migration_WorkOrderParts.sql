@@ -16,6 +16,11 @@ ALTER TABLE WorkOrders ADD
 GO
 
 -- 3. Replace the legacy seed orders with the production-order seed set.
+-- WARNING: this discards ALL existing WorkOrders rows, including any
+-- user-created ones, not just the original seed data. Pre-migration orders
+-- have no PartId/Quantity, and there is no honest way to backfill those
+-- values, so every row is intentionally dropped and replaced with the
+-- fixed production-order seed set below.
 DELETE FROM WorkOrders;
 GO
 
@@ -53,4 +58,16 @@ UPDATE Inventory SET QuantityOnHand = 20, QuantityAllocated = 14 WHERE PartId = 
 IF NOT EXISTS (SELECT 1 FROM Inventory WHERE PartId = 'part-tractor-1000')
     INSERT INTO Inventory (InventoryId, PartId, QuantityOnHand, QuantityAllocated, QuantityOnOrder, SafetyStock)
     VALUES ('inv-009', 'part-tractor-1000', 2, 0, 0, 0);
+GO
+
+-- 6. Unique-index hardening (idempotent, safe to re-run even though the
+--    rest of this script is not): closes the row-on-demand Inventory
+--    insert race and stops duplicate BOM lines from double-counting
+--    required quantity in the shortage/planning math.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_Inventory_PartId' AND object_id = OBJECT_ID('Inventory'))
+    CREATE UNIQUE INDEX UX_Inventory_PartId ON Inventory (PartId);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_BOM_Parent_Component' AND object_id = OBJECT_ID('BillOfMaterials'))
+    CREATE UNIQUE INDEX UX_BOM_Parent_Component ON BillOfMaterials (ParentPartId, ComponentPartId);
 GO

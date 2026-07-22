@@ -60,7 +60,9 @@ has a foreign key to Parts, so Planning.sql must run before WorkOrders.sql):
 1. `api/database/NaologicDb.sql` — creates the database and work centers
 2. `api/database/Planning.sql` — parts, bill of materials, inventory, demand
 3. `api/database/WorkOrders.sql` — work orders (references Parts)
-4. `api/database/Users.sql` — auth tables and the admin account
+4. `api/database/Users.sql` — auth tables only (no seed rows); the first
+   account is created via the signup page, and signup accounts get the
+   Admin role
 
 For a database created before work orders carried a part and quantity (e.g. the
 deployed Railway DB), run `api/database/Migration_WorkOrderParts.sql` once
