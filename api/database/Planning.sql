@@ -1,6 +1,15 @@
 USE NaologicDb;
 GO
 
+-- Re-run guard: WorkOrders references Parts, so it must go first when this
+-- script is replayed on its own (NaologicDb.sql already drops all of these).
+DROP TABLE IF EXISTS WorkOrders;
+DROP TABLE IF EXISTS ProductionDemand;
+DROP TABLE IF EXISTS Inventory;
+DROP TABLE IF EXISTS BillOfMaterials;
+DROP TABLE IF EXISTS Parts;
+GO
+
 CREATE TABLE Parts (
     PartId NVARCHAR(50) NOT NULL PRIMARY KEY,
     PartNumber NVARCHAR(50) NOT NULL,

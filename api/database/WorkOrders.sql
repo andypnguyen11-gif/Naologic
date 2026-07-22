@@ -1,6 +1,10 @@
 USE NaologicDb;
 GO
 
+-- Re-run guard: replaces any existing demo work orders with the seed set.
+DROP TABLE IF EXISTS WorkOrders;
+GO
+
 CREATE TABLE WorkOrders (
     WorkOrderId NVARCHAR(50) NOT NULL PRIMARY KEY,
     Name NVARCHAR(200) NOT NULL,
