@@ -56,8 +56,10 @@ Delivered two ways:
   WorkOrders CREATE TABLE and seed move logically after Parts exists — see
   seed section for script-ordering note).
 - `api/database/Migration_WorkOrderParts.sql` — standalone migration for the
-  deployed Railway DB: ALTER TABLE, backfill/replace seed orders, fix
-  inventory rows, add constraints.
+  deployed Railway DB. SQL Server cannot `ADD ... NOT NULL` on a non-empty
+  table, so the migration must: add `PartId`/`Quantity` as nullable → delete
+  the old seed orders and insert the new ones (or backfill) → `ALTER COLUMN`
+  to NOT NULL and add the FK + CHECK constraints → fix inventory rows.
 
 **Script ordering note:** `NaologicDb.sql` currently creates WorkOrders before
 `Planning.sql` creates Parts. The FK requires Parts to exist first. Resolution:
@@ -98,6 +100,11 @@ required = `QuantityPer × Quantity`.
 **Guards (all return HTTP 400, state unchanged):**
 - Completion shortage: any component with `OnHand < required` →
   `{ message, shortages: [{ partId, partName, requiredQty, onHand, shortBy }] }`.
+  The check deliberately compares **OnHand, not Available**: on completion the
+  order releases its own allocation in the same transaction, so requiring
+  `Available >= required` would double-count that reservation. Other orders'
+  soft allocations do not block consumption — standard backflush semantics.
+  Do not "fix" this to Available later.
 - Reversal would drive any quantity negative (e.g. reopening a Tractor order
   after the received tractors' stock was reduced) → rejected with a message
   naming the part.
@@ -158,40 +165,58 @@ consequence of PartId NOT NULL + BOM-only.
 
 ### Work orders
 
-| Id | Name | Part | Qty | WC | Status | Dates |
-|----|------|------|-----|----|--------|-------|
-| wo-001 | Wheel Assembly Batch 1 | wheel-assembly | 10 | wc-005 | complete | 2025-09-01 → 2025-09-20 |
-| wo-002 | Tractor Pilot Build | tractor-1000 | 2 | wc-003 | complete | 2025-10-01 → 2025-11-15 |
-| wo-003 | Wheel Assembly Batch 2 | wheel-assembly | 8 | wc-005 | in-progress | 2025-12-01 → 2026-02-10 |
-| wo-004 | Tractor Production Run A | tractor-1000 | 4 | wc-003 | open | 2026-01-05 → 2026-03-20 |
-| wo-005 | Wheel Assembly Batch 3 | wheel-assembly | 6 | wc-005 | open | 2026-03-01 → 2026-04-10 |
-| wo-006 | Tractor Production Run B | tractor-1000 | 2 | wc-003 | blocked | 2026-04-01 → 2026-05-15 |
+| Id | Name | PartId | Qty | WC | Status | Dates |
+|----|------|--------|-----|----|--------|-------|
+| wo-001 | Wheel Assembly Batch 1 | part-wheel-assembly | 10 | wc-005 | complete | 2025-09-01 → 2025-09-20 |
+| wo-002 | Tractor Pilot Build | part-tractor-1000 | 2 | wc-003 | complete | 2025-10-01 → 2025-11-15 |
+| wo-003 | Wheel Assembly Batch 2 | part-wheel-assembly | 8 | wc-005 | in-progress | 2025-12-01 → 2026-02-10 |
+| wo-004 | Tractor Production Run A | part-tractor-1000 | 4 | wc-003 | open | 2026-01-05 → 2026-03-20 |
+| wo-005 | Wheel Assembly Batch 3 | part-wheel-assembly | 6 | wc-005 | open | 2026-03-01 → 2026-04-10 |
+| wo-006 | Tractor Production Run B | part-tractor-1000 | 2 | wc-003 | blocked | 2026-04-01 → 2026-05-15 |
 
 This seeds the closed-loop demo story: wheels were built (complete), more are
 in flight, and open/blocked tractor orders have allocated the stock.
 
 ### Inventory (final state, all three effects reconciled)
 
+The seed inventory is a **full rewrite with an intentional baseline** — it
+does not derive from the old Planning.sql numbers. The baseline ("stock as
+procured, before any seeded order ran") is chosen so that after applying the
+two completed orders, every part's Available stays ≥ 0 and the demo story is
+clean. The table below is the derivation; the **Seed OnHand / Allocated**
+columns are what Planning.sql actually inserts.
+
+Completed-order deltas: wo-001 (wheel ×10): tire −10, rim −10, wheel +10.
+wo-002 (tractor ×2): frame/engine/seat/hydraulic/control −2 each, wheel −8,
+tractor +2.
+
 Allocated = Σ open/in-progress/blocked explosions:
-tire 14 (8+6), rim 14, frame 6 (4+2), engine 6, seat 6, hydraulic 6,
+tire 14 (8+6), rim 14 (8+6), frame 6 (4+2), engine 6, seat 6, hydraulic 6,
 control-panel 6, wheel-assembly 24 (4×4 + 4×2).
 
-| Part | OnHand | Allocated | Available | Notes |
-|------|--------|-----------|-----------|-------|
-| part-frame-assembly | 8 | 6 | 2 | |
-| part-engine-diesel | 8 | 6 | 2 | OnOrder 4 kept |
-| part-wheel-assembly | 30 | 24 | 6 | includes +10 (wo-001) −8 (wo-002) |
-| part-seat-cab | 9 | 6 | 3 | |
-| part-hydraulic-kit | 7 | 6 | 1 | OnOrder 6 kept |
-| part-control-panel | 7 | 6 | 1 | OnOrder 2 kept |
-| part-tire-26 | 24 | 14 | 10 | reflects −10 from wo-001 |
-| part-rim-26 | 20 | 14 | 6 | reflects −10 from wo-001 |
-| part-tractor-1000 | 2 | 0 | 2 | **new row** — received from wo-002 |
+| Part | Baseline | wo-001 Δ | wo-002 Δ | Seed OnHand | Allocated | Available |
+|------|----------|----------|----------|-------------|-----------|-----------|
+| part-frame-assembly | 10 | | −2 | 8 | 6 | 2 |
+| part-engine-diesel | 10 | | −2 | 8 | 6 | 2 |
+| part-wheel-assembly | 28 | +10 | −8 | 30 | 24 | 6 |
+| part-seat-cab | 11 | | −2 | 9 | 6 | 3 |
+| part-hydraulic-kit | 9 | | −2 | 7 | 6 | 1 |
+| part-control-panel | 9 | | −2 | 7 | 6 | 1 |
+| part-tire-26 | 34 | −10 | | 24 | 14 | 10 |
+| part-rim-26 | 30 | −10 | | 20 | 14 | 6 |
+| part-tractor-1000 | 0 | | +2 | 2 | 0 | 2 |
 
-Planning at target 10 (Tractor): Buildable Now = 1, shortages on every
-component — and completing Wheel Assembly Batch 2 visibly raises
-wheel-assembly Available from 6 to 22, improving Tractor buildability. That is
-the demo.
+OnOrder values carry over unchanged (engine 4, hydraulic 6, control-panel 2,
+tire 12, rim 8); the tractor row is **new** (OnOrder 0, SafetyStock 0).
+
+Planning at target 10 (Tractor): Buildable Now = 1 (wheel Available 6 ÷ 4 per
+tractor), shortages on every component. **Demo:** completing Wheel Assembly
+Batch 2 (×8) adds 8 to wheel OnHand and releases the batch's tire/rim
+allocations; wheel Allocated (24, all tractor demand) is untouched, so
+wheel-assembly Available rises from 6 to 14 and its shortage at target 10
+drops from 34 to 26. (Overall Buildable Now stays at 1 — hydraulic and
+control-panel are still the binding constraints — the demo point is the grid
+reacting live, not a buildability jump.)
 
 ## 6. Documentation deliverables
 
