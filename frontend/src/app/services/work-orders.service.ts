@@ -2,12 +2,13 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { WorkCenterDocument, WorkOrderDocument } from '../models/work-orders.models';
+import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class WorkOrdersService {
   private readonly http = inject(HttpClient);
   // Frontend calls are centralized here so the page component does not hardcode endpoint URLs.
-  private readonly apiBaseUrl = 'http://localhost:5080/api';
+  private readonly apiBaseUrl = environment.apiBaseUrl;
 
   getWorkCenters(): Observable<WorkCenterDocument[]> {
     return this.http.get<WorkCenterDocument[]>(`${this.apiBaseUrl}/work-centers`);

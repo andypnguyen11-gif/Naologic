@@ -3,12 +3,13 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 import { AuthResponse, AuthUser, LoginRequest, SignupRequest } from './auth.models';
+import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
-  private readonly apiBaseUrl = 'http://localhost:5080/api/auth';
+  private readonly apiBaseUrl = `${environment.apiBaseUrl}/auth`;
   private readonly storageKey = 'naologic.auth';
   private readonly authState = signal<AuthResponse | null>(this.readStoredSession());
 

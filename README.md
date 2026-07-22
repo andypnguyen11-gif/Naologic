@@ -1,5 +1,21 @@
 This project is a full-stack manufacturing scheduling and planning app for managing work orders, production readiness, and user access across work centers.
 
+## Live Deployment
+
+The app is deployed on Railway:
+
+- **Frontend (app):** https://frontend-production-fe74.up.railway.app
+- **API:** https://api-production-01a0.up.railway.app
+
+### Admin test account
+
+Sign in at https://frontend-production-fe74.up.railway.app/login with:
+
+- **Email:** `naologic.admin@example.com`
+- **Password:** `NaoAdmin123!`
+
+This account has the **Admin** role, so it can create, edit, and delete work orders and access the admin user-management screen. You can also create your own account via the signup page.
+
 It includes:
 
 - an Angular frontend for work-order scheduling, planning analysis, authentication, and admin flows
