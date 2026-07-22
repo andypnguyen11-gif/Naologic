@@ -308,17 +308,12 @@ public sealed class WorkOrderInventoryService
             return result;
         }
 
-        var parameterNames = partIds.Select((_, index) => $"@p{index}").ToArray();
-        var sql = $"""
+        const string sqlFormat = """
             SELECT PartId, QuantityOnHand, QuantityAllocated
             FROM Inventory WITH (UPDLOCK)
-            WHERE PartId IN ({string.Join(", ", parameterNames)});
+            WHERE PartId IN ({0});
             """;
-        await using var command = new SqlCommand(sql, connection, transaction);
-        for (var i = 0; i < partIds.Count; i++)
-        {
-            command.Parameters.AddWithValue($"@p{i}", partIds[i]);
-        }
+        await using var command = CreatePartIdInCommand(connection, transaction, sqlFormat, partIds);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
@@ -337,19 +332,30 @@ public sealed class WorkOrderInventoryService
             return result;
         }
 
-        var parameterNames = partIds.Select((_, index) => $"@p{index}").ToArray();
-        var sql = $"SELECT PartId, Name FROM Parts WHERE PartId IN ({string.Join(", ", parameterNames)});";
-        await using var command = new SqlCommand(sql, connection, transaction);
-        for (var i = 0; i < partIds.Count; i++)
-        {
-            command.Parameters.AddWithValue($"@p{i}", partIds[i]);
-        }
+        const string sqlFormat = "SELECT PartId, Name FROM Parts WHERE PartId IN ({0});";
+        await using var command = CreatePartIdInCommand(connection, transaction, sqlFormat, partIds);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
             result[reader.GetString(0)] = reader.GetString(1);
         }
         return result;
+    }
+
+    // Builds a command whose {0} placeholder is an IN list of @p0..@pN parameters,
+    // one per part id, so callers never concatenate ids into SQL.
+    private static SqlCommand CreatePartIdInCommand(
+        SqlConnection connection, SqlTransaction transaction,
+        string sqlFormat, IReadOnlyList<string> partIds)
+    {
+        var parameterNames = partIds.Select((_, index) => $"@p{index}");
+        var command = new SqlCommand(
+            string.Format(sqlFormat, string.Join(", ", parameterNames)), connection, transaction);
+        for (var i = 0; i < partIds.Count; i++)
+        {
+            command.Parameters.AddWithValue($"@p{i}", partIds[i]);
+        }
+        return command;
     }
 
     // ---- helpers -------------------------------------------------------------

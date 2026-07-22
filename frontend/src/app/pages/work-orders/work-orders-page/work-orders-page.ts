@@ -9,6 +9,8 @@ import { CreateWorkOrderRequest, TimelineComponent } from '../timeline/timeline'
 import { BuildablePart, WorkCenterDocument, WorkOrderDocument, WorkOrderErrorBody } from '../../../models/work-orders.models';
 import { WorkOrdersService } from '../../../services/work-orders.service';
 import { WorkOrderPanel, WorkOrderPanelSubmitEvent } from '../panel/work-order-panel/work-order-panel';
+import { buildWorkOrdersCsvContent, buildWorkOrdersExportFileName } from './work-orders-export';
+import { buildTimelineRange, Timescale } from './timeline-range';
 
 @Component({
   selector: 'app-work-orders-page',
@@ -75,20 +77,12 @@ export class WorkOrdersPage implements OnInit {
       return;
     }
 
-    const csvRows = [
-      ['Work Center', 'Work Order', 'Part', 'Quantity', 'Status', 'Start Date', 'End Date'],
-      ...this.buildExportRows()
-    ];
-
-    const csvContent = csvRows
-      .map((row) => row.map((value) => this.escapeCsvValue(value)).join(','))
-      .join('\r\n');
-
+    const csvContent = buildWorkOrdersCsvContent(this.workCenters, this.workOrders);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = this.buildExportFileName();
+    link.download = buildWorkOrdersExportFileName(new Date());
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -277,71 +271,9 @@ export class WorkOrdersPage implements OnInit {
   }
 
   private buildTimeline(scale: Timescale): void {
-    const { start, end } = this.getWorkOrderDateBounds();
-    if (scale === 'Day') {
-      this.timelineDates = this.buildDayRange(start, end, 14);
-      this.timelineHeader = this.timelineDates.map((date) =>
-        date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      );
-      return;
-    }
-
-    if (scale === 'Week') {
-      this.timelineDates = this.buildWeekRange(start, end, 2);
-      this.timelineHeader = this.timelineDates.map((date) =>
-        `Wk ${this.getWeekNumber(date)}`
-      );
-      return;
-    }
-
-    this.timelineDates = this.buildMonthRange(start, end, 2);
-    this.timelineHeader = this.timelineDates.map((date) =>
-      date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-    );
-  }
-
-  private buildExportRows(): string[][] {
-    const workCenterNameById = new Map(
-      this.workCenters.map((workCenter) => [workCenter.docId, workCenter.data.name])
-    );
-
-    return [...this.workOrders]
-      .sort((left, right) => {
-        const centerCompare = (workCenterNameById.get(left.data.workCenterId) ?? '').localeCompare(
-          workCenterNameById.get(right.data.workCenterId) ?? ''
-        );
-        if (centerCompare !== 0) {
-          return centerCompare;
-        }
-
-        const startCompare = this.toUtcMillis(left.data.startDate) - this.toUtcMillis(right.data.startDate);
-        if (startCompare !== 0) {
-          return startCompare;
-        }
-
-        return left.data.name.localeCompare(right.data.name);
-      })
-      .map((order) => [
-        workCenterNameById.get(order.data.workCenterId) ?? 'Unknown Work Center',
-        order.data.name,
-        order.data.partName ?? order.data.partId,
-        `${order.data.quantity}`,
-        this.formatStatusForExport(order.data.status),
-        order.data.startDate,
-        order.data.endDate
-      ]);
-  }
-
-  private buildExportFileName(): string {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = `${today.getMonth() + 1}`.padStart(2, '0');
-    const day = `${today.getDate()}`.padStart(2, '0');
-    return `naologic-work-orders-${year}-${month}-${day}.csv`;
-  }
-
-  private escapeCsvValue(value: string): string {
-    return `"${value.replace(/"/g, '""')}"`;
+    const range = buildTimelineRange(scale, this.workOrders);
+    this.timelineDates = range.dates;
+    this.timelineHeader = range.header;
   }
 
   private buildSaveErrorMessage(error: unknown, fallback: string): string {
@@ -360,105 +292,4 @@ export class WorkOrdersPage implements OnInit {
     return fallback;
   }
 
-  private formatStatusForExport(status: WorkOrderDocument['data']['status']): string {
-    if (status === 'in-progress') {
-      return 'In Progress';
-    }
-    return status.charAt(0).toUpperCase() + status.slice(1);
-  }
-
-  private buildDayRange(start: Date, end: Date, paddingDays: number): Date[] {
-    const dates: Date[] = [];
-    const first = new Date(start);
-    first.setDate(first.getDate() - paddingDays);
-    first.setHours(0, 0, 0, 0);
-
-    const last = new Date(end);
-    last.setDate(last.getDate() + paddingDays);
-    last.setHours(0, 0, 0, 0);
-
-    for (const d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
-      dates.push(new Date(d));
-    }
-    return dates;
-  }
-
-  private buildWeekRange(start: Date, end: Date, paddingWeeks: number): Date[] {
-    const dates: Date[] = [];
-    const first = this.startOfWeek(start);
-    first.setDate(first.getDate() - (paddingWeeks * 7));
-
-    const last = this.startOfWeek(end);
-    last.setDate(last.getDate() + (paddingWeeks * 7));
-
-    for (const d = new Date(first); d <= last; d.setDate(d.getDate() + 7)) {
-      dates.push(new Date(d));
-    }
-    return dates;
-  }
-
-  private buildMonthRange(start: Date, end: Date, paddingMonths: number): Date[] {
-    const dates: Date[] = [];
-    const first = new Date(start.getFullYear(), start.getMonth() - paddingMonths, 1);
-    const last = new Date(end.getFullYear(), end.getMonth() + paddingMonths, 1);
-
-    for (
-      const d = new Date(first.getFullYear(), first.getMonth(), 1);
-      d <= last;
-      d.setMonth(d.getMonth() + 1)
-    ) {
-      dates.push(new Date(d));
-    }
-    return dates;
-  }
-
-  private getWorkOrderDateBounds(): { start: Date; end: Date } {
-    if (!this.workOrders.length) {
-      const today = new Date();
-      return { start: today, end: today };
-    }
-
-    // Build the rendered range from the actual work-order bounds so users can
-    // scroll to the earliest and latest scheduled items in the sample data.
-    let earliest = this.parseStoredDate(this.workOrders[0].data.startDate);
-    let latest = this.parseStoredDate(this.workOrders[0].data.endDate);
-
-    for (const order of this.workOrders) {
-      const orderStart = this.parseStoredDate(order.data.startDate);
-      const orderEnd = this.parseStoredDate(order.data.endDate);
-      if (orderStart < earliest) {
-        earliest = orderStart;
-      }
-      if (orderEnd > latest) {
-        latest = orderEnd;
-      }
-    }
-
-    return { start: earliest, end: latest };
-  }
-
-  private startOfWeek(date: Date): Date {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = (day + 6) % 7;
-    d.setDate(d.getDate() - diff);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }
-
-  private getWeekNumber(date: Date): number {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-  }
-
-  private parseStoredDate(dateString: string): Date {
-    // Use local calendar parsing instead of Date(string) to avoid timezone drift.
-    const [year, month, day] = dateString.split('-').map(Number);
-    return new Date(year, (month || 1) - 1, day || 1);
-  }
 }
-
-type Timescale = 'Day' | 'Week' | 'Month';
