@@ -118,6 +118,11 @@ export class TimelineComponent implements OnChanges, AfterViewInit {
     return this.formatStatus(order.data.status);
   }
 
+  getWorkOrderTooltipPart(order: WorkOrderDocument): string {
+    const label = order.data.partName ?? order.data.partId;
+    return `${label} × ${order.data.quantity}`;
+  }
+
   getWorkOrderTooltipDateRange(order: WorkOrderDocument): string {
     const start = this.parseStoredDate(order.data.startDate);
     const end = this.parseStoredDate(order.data.endDate);

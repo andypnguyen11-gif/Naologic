@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { WorkCenterDocument, WorkOrderDocument } from '../models/work-orders.models';
+import { BuildablePart, WorkCenterDocument, WorkOrderDocument } from '../models/work-orders.models';
 import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -23,6 +23,8 @@ export class WorkOrdersService {
     return this.http.post<WorkOrderDocument>(`${this.apiBaseUrl}/work-orders`, {
       name: workOrder.data.name,
       workCenterId: workOrder.data.workCenterId,
+      partId: workOrder.data.partId,
+      quantity: workOrder.data.quantity,
       status: workOrder.data.status,
       startDate: workOrder.data.startDate,
       endDate: workOrder.data.endDate
@@ -34,6 +36,8 @@ export class WorkOrdersService {
     return this.http.put<WorkOrderDocument>(`${this.apiBaseUrl}/work-orders/${workOrder.docId}`, {
       name: workOrder.data.name,
       workCenterId: workOrder.data.workCenterId,
+      partId: workOrder.data.partId,
+      quantity: workOrder.data.quantity,
       status: workOrder.data.status,
       startDate: workOrder.data.startDate,
       endDate: workOrder.data.endDate
@@ -42,5 +46,9 @@ export class WorkOrdersService {
 
   deleteWorkOrder(workOrderId: string): Observable<void> {
     return this.http.delete<void>(`${this.apiBaseUrl}/work-orders/${workOrderId}`);
+  }
+
+  getBuildableParts(): Observable<BuildablePart[]> {
+    return this.http.get<BuildablePart[]>(`${this.apiBaseUrl}/parts/buildable`);
   }
 }

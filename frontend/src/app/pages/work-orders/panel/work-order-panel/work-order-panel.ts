@@ -3,7 +3,7 @@ import { Component, EventEmitter, HostListener, Injectable, Input, OnChanges, Ou
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { NgbDateParserFormatter, NgbDateStruct, NgbDatepickerModule, NgbInputDatepicker } from '@ng-bootstrap/ng-bootstrap';
 import { NgSelectModule } from '@ng-select/ng-select';
-import { WorkOrderDocument, WorkOrderStatus } from '../../../../models/work-orders.models';
+import { BuildablePart, WorkCenterDocument, WorkOrderDocument, WorkOrderStatus } from '../../../../models/work-orders.models';
 
 export interface WorkOrderPanelSubmitEvent {
   mode: 'create' | 'edit';
@@ -11,6 +11,9 @@ export interface WorkOrderPanelSubmitEvent {
   value: {
     name: string;
     status: WorkOrderStatus;
+    partId: string;
+    quantity: number;
+    workCenterId: string;
     startDate: string;
     endDate: string;
   };
@@ -64,6 +67,9 @@ export class WorkOrderPanel implements OnChanges {
   @Input() open = false;
   @Input() mode: 'create' | 'edit' = 'create';
   @Input() order: WorkOrderDocument | null = null;
+  @Input() buildableParts: BuildablePart[] = [];
+  @Input() workCenters: WorkCenterDocument[] = [];
+  @Input() defaultWorkCenterId: string | null = null;
   @Input() defaultStartDate: string | null = null;
   @Input() saveError: string | null = null;
   @Output() closePanel = new EventEmitter<void>();
@@ -100,6 +106,9 @@ export class WorkOrderPanel implements OnChanges {
       {
         name: ['', [Validators.required]],
         status: [this.statusOptions[0].value, [Validators.required]],
+        partId: [null as string | null, [Validators.required]],
+        quantity: [1, [Validators.required, Validators.min(1)]],
+        workCenterId: [null as string | null, [Validators.required]],
         startDate: [null as NgbDateStruct | null, [Validators.required]],
         endDate: [null as NgbDateStruct | null, [Validators.required]]
       },
@@ -168,13 +177,24 @@ export class WorkOrderPanel implements OnChanges {
     return typeof item === 'string' ? item : item.value;
   }
 
-  protected isFieldInvalid(fieldName: 'name' | 'status' | 'startDate' | 'endDate'): boolean {
+  protected isFieldInvalid(fieldName: 'name' | 'status' | 'partId' | 'quantity' | 'workCenterId' | 'startDate' | 'endDate'): boolean {
     const field = this.form.get(fieldName);
     return !!field && field.invalid && (field.dirty || field.touched);
   }
 
   protected get showDateRangeError(): boolean {
     return !!this.form.errors?.['dateRange'] && (this.form.dirty || this.form.touched);
+  }
+
+  // ng-select's (change) hands back the item object; tests call with a plain id.
+  protected onPartSelected(part: BuildablePart | string | null): void {
+    const partId = typeof part === 'string' ? part : (part?.partId ?? null);
+    const match = this.buildableParts.find((candidate) => candidate.partId === partId);
+    // Only fill an empty work center; a value seeded from the clicked timeline
+    // row (or chosen by the user) must not be overwritten by the part default.
+    if (match?.defaultWorkCenterId && !this.form.getRawValue().workCenterId) {
+      this.form.patchValue({ workCenterId: match.defaultWorkCenterId });
+    }
   }
 
   @HostListener('document:mousedown', ['$event'])
@@ -218,6 +238,9 @@ export class WorkOrderPanel implements OnChanges {
       value: {
         name: formValue.name ?? '',
         status: (formValue.status as WorkOrderStatus | null) ?? 'open',
+        partId: formValue.partId ?? '',
+        quantity: Number(formValue.quantity ?? 0),
+        workCenterId: formValue.workCenterId ?? '',
         startDate,
         endDate
       }
@@ -229,6 +252,9 @@ export class WorkOrderPanel implements OnChanges {
       this.form.reset({
         name: this.order.data.name,
         status: this.order.data.status,
+        partId: this.order.data.partId,
+        quantity: this.order.data.quantity,
+        workCenterId: this.order.data.workCenterId,
         startDate: this.toDateStruct(this.order.data.startDate),
         endDate: this.toDateStruct(this.order.data.endDate)
       });
@@ -244,6 +270,9 @@ export class WorkOrderPanel implements OnChanges {
       this.form.reset({
         name: '',
         status: this.statusOptions[0].value,
+        partId: null,
+        quantity: 1,
+        workCenterId: this.defaultWorkCenterId,
         startDate: this.toDateStruct(startDate),
         endDate: this.toDateStruct(this.formatDate(end))
       });

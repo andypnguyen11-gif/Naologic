@@ -1,11 +1,12 @@
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectorRef, Component, NgZone, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../auth/auth.service';
 import { CreateWorkOrderRequest, TimelineComponent } from '../timeline/timeline';
-import { WorkCenterDocument, WorkOrderDocument } from '../../../models/work-orders.models';
+import { BuildablePart, WorkCenterDocument, WorkOrderDocument, WorkOrderErrorBody } from '../../../models/work-orders.models';
 import { WorkOrdersService } from '../../../services/work-orders.service';
 import { WorkOrderPanel, WorkOrderPanelSubmitEvent } from '../panel/work-order-panel/work-order-panel';
 
@@ -21,6 +22,7 @@ export class WorkOrdersPage implements OnInit {
   protected selectedTimescale: Timescale = 'Day';
   protected workCenters: WorkCenterDocument[] = [];
   protected workOrders: WorkOrderDocument[] = [];
+  protected buildableParts: BuildablePart[] = [];
   protected timelineHeader: string[] = [];
   protected timelineDates: Date[] = [];
   protected isPanelOpen = false;
@@ -74,7 +76,7 @@ export class WorkOrdersPage implements OnInit {
     }
 
     const csvRows = [
-      ['Work Center', 'Work Order', 'Status', 'Start Date', 'End Date'],
+      ['Work Center', 'Work Order', 'Part', 'Quantity', 'Status', 'Start Date', 'End Date'],
       ...this.buildExportRows()
     ];
 
@@ -114,8 +116,8 @@ export class WorkOrdersPage implements OnInit {
       }
       this.buildTimeline(this.selectedTimescale);
       this.loadError = null;
-    } catch {
-      this.loadError = 'Unable to delete the work order. Check that the API is running.';
+    } catch (error) {
+      this.loadError = this.buildSaveErrorMessage(error, 'Unable to delete the work order. Check that the API is running.');
     }
   }
 
@@ -149,10 +151,7 @@ export class WorkOrdersPage implements OnInit {
       return;
     }
 
-    const targetWorkCenterId =
-      event.mode === 'edit'
-        ? (this.selectedOrder?.data.workCenterId ?? '')
-        : (this.pendingCreateWorkCenterId ?? this.workCenters[0]?.docId ?? '');
+    const targetWorkCenterId = event.value.workCenterId;
     const excludeOrderId = event.mode === 'edit' ? event.orderId : null;
     const nextStart = this.toUtcMillis(event.value.startDate);
     const nextEnd = this.toUtcMillis(event.value.endDate);
@@ -184,6 +183,8 @@ export class WorkOrdersPage implements OnInit {
             ...existingOrder.data,
             name: event.value.name,
             workCenterId: targetWorkCenterId,
+            partId: event.value.partId,
+            quantity: event.value.quantity,
             status: event.value.status,
             startDate: event.value.startDate,
             endDate: event.value.endDate
@@ -194,8 +195,8 @@ export class WorkOrdersPage implements OnInit {
         );
         this.buildTimeline(this.selectedTimescale);
         this.onClosePanel();
-      } catch {
-        this.panelSaveError = 'Unable to save the work order. Check that the API is running.';
+      } catch (error) {
+        this.panelSaveError = this.buildSaveErrorMessage(error, 'Unable to save the work order. Check that the API is running.');
       }
       return;
     }
@@ -205,6 +206,8 @@ export class WorkOrdersPage implements OnInit {
         data: {
           name: event.value.name,
           workCenterId: targetWorkCenterId,
+          partId: event.value.partId,
+          quantity: event.value.quantity,
           status: event.value.status,
           startDate: event.value.startDate,
           endDate: event.value.endDate
@@ -213,8 +216,8 @@ export class WorkOrdersPage implements OnInit {
       this.workOrders = [...this.workOrders, createdOrder];
       this.buildTimeline(this.selectedTimescale);
       this.onClosePanel();
-    } catch {
-      this.panelSaveError = 'Unable to create the work order. Check that the API is running.';
+    } catch (error) {
+      this.panelSaveError = this.buildSaveErrorMessage(error, 'Unable to create the work order. Check that the API is running.');
     }
   }
 
@@ -227,12 +230,14 @@ export class WorkOrdersPage implements OnInit {
     this.loadError = null;
 
     try {
-      const [workCenters, workOrders] = await Promise.all([
+      const [workCenters, workOrders, buildableParts] = await Promise.all([
         firstValueFrom(this.workOrdersService.getWorkCenters()),
-        firstValueFrom(this.workOrdersService.getWorkOrders())
+        firstValueFrom(this.workOrdersService.getWorkOrders()),
+        firstValueFrom(this.workOrdersService.getBuildableParts())
       ]);
       this.workCenters = workCenters;
       this.workOrders = workOrders;
+      this.buildableParts = buildableParts;
       this.buildTimeline(this.selectedTimescale);
     } catch {
       this.loadError = 'Unable to load work orders. Start the API and verify the database connection.';
@@ -319,6 +324,8 @@ export class WorkOrdersPage implements OnInit {
       .map((order) => [
         workCenterNameById.get(order.data.workCenterId) ?? 'Unknown Work Center',
         order.data.name,
+        order.data.partName ?? order.data.partId,
+        `${order.data.quantity}`,
         this.formatStatusForExport(order.data.status),
         order.data.startDate,
         order.data.endDate
@@ -335,6 +342,22 @@ export class WorkOrdersPage implements OnInit {
 
   private escapeCsvValue(value: string): string {
     return `"${value.replace(/"/g, '""')}"`;
+  }
+
+  private buildSaveErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof HttpErrorResponse) {
+      const body = error.error as WorkOrderErrorBody | null;
+      if (body?.shortages?.length) {
+        const details = body.shortages
+          .map((shortage) => `${shortage.partName}: need ${shortage.requiredQty}, on hand ${shortage.onHand} (short ${shortage.shortBy})`)
+          .join('; ');
+        return `${body.message ?? 'Cannot complete: insufficient component inventory.'} ${details}`;
+      }
+      if (body?.message) {
+        return body.message;
+      }
+    }
+    return fallback;
   }
 
   private formatStatusForExport(status: WorkOrderDocument['data']['status']): string {

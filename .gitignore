@@ -3,6 +3,8 @@
 # .NET build artifacts
 api/bin/
 api/obj/
+api.Tests/bin/
+api.Tests/obj/
 .vs/
 *.user
 *.suo

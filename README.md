@@ -26,17 +26,19 @@ The frontend allows users to:
 
 - sign up, log in, and access authenticated application routes
 - view work orders by day, week, or month
-- create, edit, and delete work orders
+- create, edit, and delete work orders, including part and quantity selection from the buildable-parts list
 - see work orders grouped by work center
 - validate scheduling conflicts in the UI
 - open a planning dashboard with product and target quantity filters
 - review buildability, shortages, projected ready days, and component gap detail through summary cards, charts, and tables
+- see planning availability react to work-order lifecycle changes (allocation, consumption, receipt)
 - access an admin screen for user management when authorized
 
 The backend is responsible for:
 
 - serving work-center and work-order data to the frontend
 - handling create, update, and delete work-order operations
+- enforcing the production-order inventory lifecycle (allocate / consume / receive / reverse) transactionally with shortage blocking
 - exposing planning data for component gap analysis based on bill of materials, inventory, and work-center data
 - handling authentication and authorization for application users
 - supporting admin user-management operations
@@ -49,3 +51,19 @@ The database layer includes:
 - planning-related tables such as bill of materials, parts, and inventory
 - user/account data used for authentication and admin access
 - SQL setup and seed scripts that create the schema and load the sample data
+
+### Database setup
+
+Run the SQL scripts against your SQL Server instance **in this order** (WorkOrders
+has a foreign key to Parts, so Planning.sql must run before WorkOrders.sql):
+
+1. `api/database/NaologicDb.sql` — creates the database and work centers
+2. `api/database/Planning.sql` — parts, bill of materials, inventory, demand
+3. `api/database/WorkOrders.sql` — work orders (references Parts)
+4. `api/database/Users.sql` — auth tables only (no seed rows); the first
+   account is created via the signup page, and signup accounts get the
+   Admin role
+
+For a database created before work orders carried a part and quantity (e.g. the
+deployed Railway DB), run `api/database/Migration_WorkOrderParts.sql` once
+instead of re-creating.
