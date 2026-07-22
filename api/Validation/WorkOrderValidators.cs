@@ -18,6 +18,16 @@ public static class WorkOrderValidators
             errors["workCenterId"] = ["Work center is required."];
         }
 
+        if (string.IsNullOrWhiteSpace(request.PartId))
+        {
+            errors["partId"] = ["Part is required."];
+        }
+
+        if (request.Quantity <= 0)
+        {
+            errors["quantity"] = ["Quantity must be greater than zero."];
+        }
+
         if (!WorkOrdersRepository.AllowedStatuses.Contains(request.Status))
         {
             errors["status"] = [$"Status must be one of: {string.Join(", ", WorkOrdersRepository.AllowedStatuses)}."];

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Naologic_API.Models.WorkOrders;
 using Naologic_API.Repositories;
+using Naologic_API.Services;
 using Naologic_API.Validation;
 
 namespace Naologic_API.Controllers;
@@ -12,10 +13,12 @@ namespace Naologic_API.Controllers;
 public sealed class WorkOrdersController : ControllerBase
 {
     private readonly WorkOrdersRepository _repository;
+    private readonly WorkOrderInventoryService _inventoryService;
 
-    public WorkOrdersController(WorkOrdersRepository repository)
+    public WorkOrdersController(WorkOrdersRepository repository, WorkOrderInventoryService inventoryService)
     {
         _repository = repository;
+        _inventoryService = inventoryService;
     }
 
     [HttpGet("work-centers")]
@@ -42,10 +45,12 @@ public sealed class WorkOrdersController : ControllerBase
             return Results.ValidationProblem(validationError);
         }
 
-        var created = await _repository.CreateWorkOrderAsync(request, cancellationToken);
-        return created is null
-            ? Results.BadRequest(new { message = "Unknown work center." })
-            : Results.Created($"/api/work-orders/{created.DocId}", created);
+        var result = await _inventoryService.CreateAsync(request, cancellationToken);
+        if (result.Error is not null)
+        {
+            return Results.BadRequest(new { message = result.Error.Message, shortages = result.Error.Shortages });
+        }
+        return Results.Created($"/api/work-orders/{result.Document!.DocId}", result.Document);
     }
 
     [Authorize(Policy = "PlannerWriteAccess")]
@@ -58,17 +63,31 @@ public sealed class WorkOrdersController : ControllerBase
             return Results.ValidationProblem(validationError);
         }
 
-        var updated = await _repository.UpdateWorkOrderAsync(id, request, cancellationToken);
-        return updated is null
-            ? Results.NotFound()
-            : Results.Ok(updated);
+        var result = await _inventoryService.UpdateAsync(id, request, cancellationToken);
+        if (result.NotFound)
+        {
+            return Results.NotFound();
+        }
+        if (result.Error is not null)
+        {
+            return Results.BadRequest(new { message = result.Error.Message, shortages = result.Error.Shortages });
+        }
+        return Results.Ok(result.Document);
     }
 
     [Authorize(Policy = "PlannerWriteAccess")]
     [HttpDelete("work-orders/{id}")]
-    public async Task<IActionResult> DeleteWorkOrder(string id, CancellationToken cancellationToken)
+    public async Task<IResult> DeleteWorkOrder(string id, CancellationToken cancellationToken)
     {
-        var deleted = await _repository.DeleteWorkOrderAsync(id, cancellationToken);
-        return deleted ? NoContent() : NotFound();
+        var result = await _inventoryService.DeleteAsync(id, cancellationToken);
+        if (result.NotFound)
+        {
+            return Results.NotFound();
+        }
+        if (result.Error is not null)
+        {
+            return Results.BadRequest(new { message = result.Error.Message, shortages = result.Error.Shortages });
+        }
+        return Results.NoContent();
     }
 }
