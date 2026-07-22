@@ -3,7 +3,7 @@
     <header class="wo-panel-header">
       <div class="wo-panel-heading">
         <h2>{{ title }}</h2>
-        <p>Specify the dates, name and status for this order</p>
+        <p>Specify the part, quantity, dates, name and status for this order</p>
       </div>
       <div class="wo-panel-header-actions">
         <button class="wo-btn secondary" type="button" (click)="onClose()">Cancel</button>
@@ -44,6 +44,52 @@
             <span class="wo-status-option">{{ getStatusLabel(item) }}</span>
           </ng-template>
         </ng-select>
+      </div>
+
+      <div class="wo-field">
+        <label>Part</label>
+        <ng-select
+          formControlName="partId"
+          [items]="buildableParts"
+          bindLabel="name"
+          bindValue="partId"
+          [clearable]="false"
+          placeholder="Select a part to build"
+          (change)="onPartSelected($event)"
+          [ngClass]="{ 'ng-select-invalid': isFieldInvalid('partId') }"
+        >
+          <ng-template ng-option-tmp let-item="item">
+            <span>{{ item.name }}</span>
+            <span class="wo-part-number">{{ item.partNumber }}</span>
+          </ng-template>
+        </ng-select>
+        <p class="wo-field-error" *ngIf="isFieldInvalid('partId')">Part is required.</p>
+      </div>
+
+      <div class="wo-field">
+        <label>Quantity</label>
+        <input
+          type="number"
+          formControlName="quantity"
+          min="1"
+          step="1"
+          [class.invalid]="isFieldInvalid('quantity')"
+        />
+        <p class="wo-field-error" *ngIf="isFieldInvalid('quantity')">Quantity must be at least 1.</p>
+      </div>
+
+      <div class="wo-field">
+        <label>Work Center</label>
+        <ng-select
+          formControlName="workCenterId"
+          [items]="workCenters"
+          bindLabel="data.name"
+          bindValue="docId"
+          [clearable]="false"
+          [searchable]="false"
+          [ngClass]="{ 'ng-select-invalid': isFieldInvalid('workCenterId') }"
+        />
+        <p class="wo-field-error" *ngIf="isFieldInvalid('workCenterId')">Work center is required.</p>
       </div>
 
       <div class="wo-field">

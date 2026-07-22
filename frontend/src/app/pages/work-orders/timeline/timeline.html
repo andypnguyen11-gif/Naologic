@@ -130,6 +130,7 @@
           [style.top.px]="hoveredBarTooltipTopPx"
         >
           <div class="wo-bar-tooltip-name">{{ hoveredTooltipOrder.data.name }}</div>
+          <div class="wo-bar-tooltip-part">{{ getWorkOrderTooltipPart(hoveredTooltipOrder) }}</div>
           <div class="wo-bar-tooltip-meta">
             <span class="wo-bar-tooltip-status">{{ getWorkOrderTooltipStatus(hoveredTooltipOrder) }}</span>
             <span class="wo-bar-tooltip-dates">{{ getWorkOrderTooltipDateRange(hoveredTooltipOrder) }}</span>
