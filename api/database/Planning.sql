@@ -82,14 +82,15 @@ GO
 
 INSERT INTO Inventory (InventoryId, PartId, QuantityOnHand, QuantityAllocated, QuantityOnOrder, SafetyStock)
 VALUES
-('inv-001', 'part-frame-assembly', 6, 0, 0, 1),
-('inv-002', 'part-engine-diesel', 8, 0, 4, 1),
-('inv-003', 'part-wheel-assembly', 30, 0, 0, 2),
-('inv-004', 'part-seat-cab', 9, 0, 0, 1),
-('inv-005', 'part-hydraulic-kit', 5, 0, 6, 1),
-('inv-006', 'part-control-panel', 7, 0, 2, 1),
-('inv-007', 'part-tire-26', 20, 0, 12, 2),
-('inv-008', 'part-rim-26', 24, 0, 8, 2);
+('inv-001', 'part-frame-assembly', 8, 6, 0, 1),
+('inv-002', 'part-engine-diesel', 8, 6, 4, 1),
+('inv-003', 'part-wheel-assembly', 30, 24, 0, 2),
+('inv-004', 'part-seat-cab', 9, 6, 0, 1),
+('inv-005', 'part-hydraulic-kit', 7, 6, 6, 1),
+('inv-006', 'part-control-panel', 7, 6, 2, 1),
+('inv-007', 'part-tire-26', 24, 14, 12, 2),
+('inv-008', 'part-rim-26', 20, 14, 8, 2),
+('inv-009', 'part-tractor-1000', 2, 0, 0, 0);
 GO
 
 INSERT INTO ProductionDemand (DemandId, ProductPartId, DemandMonth, QuantityRequired)
