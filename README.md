@@ -26,17 +26,19 @@ The frontend allows users to:
 
 - sign up, log in, and access authenticated application routes
 - view work orders by day, week, or month
-- create, edit, and delete work orders
+- create, edit, and delete work orders, including part and quantity selection from the buildable-parts list
 - see work orders grouped by work center
 - validate scheduling conflicts in the UI
 - open a planning dashboard with product and target quantity filters
 - review buildability, shortages, projected ready days, and component gap detail through summary cards, charts, and tables
+- see planning availability react to work-order lifecycle changes (allocation, consumption, receipt)
 - access an admin screen for user management when authorized
 
 The backend is responsible for:
 
 - serving work-center and work-order data to the frontend
 - handling create, update, and delete work-order operations
+- enforcing the production-order inventory lifecycle (allocate / consume / receive / reverse) transactionally with shortage blocking
 - exposing planning data for component gap analysis based on bill of materials, inventory, and work-center data
 - handling authentication and authorization for application users
 - supporting admin user-management operations
