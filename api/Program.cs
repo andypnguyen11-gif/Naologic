@@ -51,6 +51,7 @@ builder.Services.AddAuthorizationBuilder()
 builder.Services.AddSingleton<WorkOrdersRepository>();
 builder.Services.AddSingleton<PlanningRepository>();
 builder.Services.AddSingleton<WorkOrderInventoryService>();
+builder.Services.AddSingleton<PartsRepository>();
 builder.Services.AddSingleton<UsersRepository>();
 builder.Services.AddSingleton<IPasswordHasher<AppUserAccount>, PasswordHasher<AppUserAccount>>();
 builder.Services.AddSingleton<JwtTokenService>();
